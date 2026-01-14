@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Booking Queue System</title>
+    <style>
+        /* CSS Styles */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 500px;
+            text-align: center;
+        }
+
+        h1, h2 { color: #333; }
+        p { color: #666; font-size: 1.1rem; }
+
+        /* Utility Class to Hide Sections */
+        .hidden { display: none; }
+
+        /* Progress Bar Styles */
+        .progress-container {
+            width: 100%;
+            background-color: #e0e0e0;
+            border-radius: 25px;
+            margin: 20px 0;
+            height: 25px;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            height: 100%;
+            width: 0%;
+            background-color: #007bff;
+            border-radius: 25px;
+            transition: width 0.1s linear;
+        }
+
+        /* Form Styles */
+        .form-group {
+            margin-bottom: 15px;
+            text-align: left;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #444;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-sizing: border-box; /* Ensures padding doesn't affect width */
+            font-size: 1rem;
+        }
+
+        .phone-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        .phone-group select {
+            width: 35%;
+        }
+
+        button {
+            background-color: #28a745;
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            width: 100%;
+            font-size: 1.1rem;
+            margin-top: 10px;
+        }
+
+        button:hover { background-color: #218838; }
+
+        /* Success Message Styles */
+        .success-box {
+            background-color: #d4edda;
+            color: #155724;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #c3e6cb;
+        }
+        .time-slot {
+            font-size: 2rem;
+            font-weight: bold;
+            margin: 20px 0;
+            color: #155724;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        
+        <!-- STEP 1: Pre-Queue Page -->
+        <div id="step-prequeue">
+            <h1>Welcome</h1>
+            <p>The queue is currently loading.</p>
+            <p>Please wait...</p>
+            <h2 id="prequeue-timer">30</h2>
+            <p style="font-size: 0.9rem; color: #999;">Do not refresh the page.</p>
+        </div>
+
+        <!-- STEP 2: The Queue -->
+        <div id="step-queue" class="hidden">
+            <h1>You are in line</h1>
+            <p>People ahead of you:</p>
+            <h2 id="position-display">...</h2>
+            
+            <div class="progress-container">
+                <div id="progress-bar" class="progress-bar"></div>
+            </div>
+            
+            <p id="queue-status">Calculating estimated wait time...</p>
+        </div>
+
+        <!-- STEP 3: The Form -->
+        <div id="step-form" class="hidden">
+            <h2>Enter Your Details</h2>
+            <form id="bookingForm">
+                <div class="form-group">
+                    <label>First Name</label>
+                    <input type="text" id="firstName" required>
+                </div>
+                <div class="form-group">
+                    <label>Last Name</label>
+                    <input type="text" id="lastName" required>
+                </div>
+                <div class="form-group">
+                    <label>ID Number</label>
+                    <input type="text" id="idNumber" required>
+                </div>
+                <div class="form-group">
+                    <label>Phone Number</label>
+                    <div class="phone-group">
+                        <select id="countryCode">
+                            <option value="+1">US (+1)</option>
+                            <option value="+44">UK (+44)</option>
+                            <option value="+61">AU (+61)</option>
+                            <option value="+91">IN (+91)</option>
+                            <option value="+86">CN (+86)</option>
+                            <option value="+81">JP (+81)</option>
+                            <option value="+49">DE (+49)</option>
+                            <!-- Add more as needed -->
+                        </select>
+                        <input type="tel" id="phoneNumber" placeholder="123-456-7890" required>
+                    </div>
+                </div>
+                <button type="submit">Submit Registration</button>
+            </form>
+        </div>
+
+        <!-- STEP 4: Success Page -->
+        <div id="step-success" class="hidden">
+            <div class="success-box">
+                <h1>Success!</h1>
+                <p>Your registration has been submitted.</p>
+            </div>
+            <p>Your assigned time slot for today is:</p>
+            <div class="time-slot" id="assigned-time">--:--</div>
+            <p>Please bring your ID.</p>
+        </div>
+
+    </div>
+
+    <script>
+        // --- CONFIGURATION ---
+        const PRE_QUEUE_TIME = 30; // Seconds
+        const QUEUE_TIME = 30;     // Seconds
+        
+        // --- STATE VARIABLES ---
+        let preQueueTimer = PRE_QUEUE_TIME;
+        let queueTimer = QUEUE_TIME;
+        
+        // --- DOM ELEMENTS ---
+        const preQueueStep = document.getElementById('step-prequeue');
+        const queueStep = document.getElementById('step-queue');
+        const formStep = document.getElementById('step-form');
+        const successStep = document.getElementById('step-success');
+
+        // --- STEP 1: PRE-QUEUE LOGIC ---
+        function startPreQueue() {
+            const timerDisplay = document.getElementById('prequeue-timer');
+            
+            const interval = setInterval(() => {
+                preQueueTimer--;
+                timerDisplay.textContent = preQueueTimer;
+
+                if (preQueueTimer <= 0) {
+                    clearInterval(interval);
+                    goToQueue();
+                }
+            }, 1000);
+        }
+
+        // --- STEP 2: QUEUE LOGIC ---
+        function goToQueue() {
+            preQueueStep.classList.add('hidden');
+            queueStep.classList.remove('hidden');
+
+            // 1. Randomize Position (1 to 800)
+            const startPosition = Math.floor(Math.random() * 800) + 1;
+            let currentPosition = startPosition;
+
+            const positionDisplay = document.getElementById('position-display');
+            const progressBar = document.getElementById('progress-bar');
+            const statusText = document.getElementById('queue-status');
+            
+            positionDisplay.textContent = startPosition;
+
+            // We need to run for exactly QUEUE_TIME (30s).
+            // We update the visual every 100ms for smoothness.
+            const totalUpdates = QUEUE_TIME * 10; 
+            let updatesElapsed = 0;
+
+            const queueInterval = setInterval(() => {
+                updatesElapsed++;
+                
+                // Calculate percentage complete
+                const percentage = (updatesElapsed / totalUpdates) * 100;
+                
+                // Update Progress Bar
+                progressBar.style.width = percentage + '%';
+
+                // Update Position Number (Visual effect only, decreasing to 0)
+                // Logic: Start - (Start * (Percentage / 100))
+                currentPosition = Math.max(0, Math.floor(startPosition - (startPosition * (percentage / 100))));
+                positionDisplay.textContent = currentPosition;
+
+                // Update text based on progress
+                if(percentage > 50) statusText.textContent = "Almost there...";
+                if(percentage > 90) statusText.textContent = "Redirecting...";
+
+                // Check if done
+                if (updatesElapsed >= totalUpdates) {
+                    clearInterval(queueInterval);
+                    goToForm();
+                }
+
+            }, 100); // Run every 100ms
+        }
+
+        // --- STEP 3: FORM LOGIC ---
+        function goToForm() {
+            queueStep.classList.add('hidden');
+            formStep.classList.remove('hidden');
+        }
+
+        // Handle Form Submission
+        document.getElementById('bookingForm').addEventListener('submit', function(e) {
+            e.preventDefault(); // Prevent actual page reload
+            goToSuccess();
+        });
+
+        // --- STEP 4: SUCCESS LOGIC ---
+        function goToSuccess() {
+            formStep.classList.add('hidden');
+            successStep.classList.remove('hidden');
+
+            // Generate Random Time between 9:00 AM and 5:00 PM
+            const randomTime = generateRandomTimeSlot();
+            document.getElementById('assigned-time').textContent = randomTime;
+        }
+
+        function generateRandomTimeSlot() {
+            // 9 AM = 9 * 60 = 540 minutes
+            // 5 PM = 17 * 60 = 1020 minutes
+            const startMins = 540;
+            const endMins = 1020;
+            
+            const randomMins = Math.floor(Math.random() * (endMins - startMins + 1)) + startMins;
+            
+            const hours = Math.floor(randomMins / 60);
+            const minutes = randomMins % 60;
+            
+            // Format hours (12-hour format)
+            const period = hours >= 12 ? 'PM' : 'AM';
+            let displayHours = hours > 12 ? hours - 12 : hours;
+            if (displayHours === 0) displayHours = 12; // Handle noon/midnight edge cases
+
+            // Format minutes (add leading zero if needed)
+            const displayMinutes = minutes < 10 ? '0' + minutes : minutes;
+
+            return `${displayHours}:${displayMinutes} ${period}`;
+        }
+
+        // --- INITIALIZE ---
+        window.onload = startPreQueue;
+
+    </script>
+</body>
+</html>
