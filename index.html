@@ -12,8 +12,10 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
+            min-height: 100vh; /* changed to min-height for better mobile scrolling */
             margin: 0;
+            padding: 20px; /* added padding for mobile */
+            box-sizing: border-box;
         }
 
         .container {
@@ -68,7 +70,7 @@
             padding: 10px;
             border: 1px solid #ccc;
             border-radius: 5px;
-            box-sizing: border-box; /* Ensures padding doesn't affect width */
+            box-sizing: border-box; 
             font-size: 1rem;
         }
 
@@ -102,12 +104,31 @@
             padding: 20px;
             border-radius: 8px;
             border: 1px solid #c3e6cb;
+            margin-bottom: 20px;
         }
         .time-slot {
             font-size: 2rem;
             font-weight: bold;
-            margin: 20px 0;
+            margin: 10px 0;
             color: #155724;
+        }
+        
+        /* Receipt Style for User Data */
+        .receipt {
+            text-align: left;
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px dashed #ccc;
+            margin-top: 20px;
+        }
+        .receipt p {
+            font-size: 0.95rem;
+            margin: 5px 0;
+            color: #333;
+        }
+        .receipt strong {
+            color: #555;
         }
     </style>
 </head>
@@ -164,7 +185,6 @@
                             <option value="+86">CN (+86)</option>
                             <option value="+81">JP (+81)</option>
                             <option value="+49">DE (+49)</option>
-                            <!-- Add more as needed -->
                         </select>
                         <input type="tel" id="phoneNumber" placeholder="123-456-7890" required>
                     </div>
@@ -178,10 +198,17 @@
             <div class="success-box">
                 <h1>Success!</h1>
                 <p>Your registration has been submitted.</p>
+                <div class="time-slot" id="assigned-time">--:--</div>
+                <p>Please bring your ID at this time.</p>
             </div>
-            <p>Your assigned time slot for today is:</p>
-            <div class="time-slot" id="assigned-time">--:--</div>
-            <p>Please bring your ID.</p>
+
+            <!-- New Section: Display User Data -->
+            <div class="receipt">
+                <h3>Confirmation Details:</h3>
+                <p><strong>Name:</strong> <span id="display-name"></span></p>
+                <p><strong>ID Number:</strong> <span id="display-id"></span></p>
+                <p><strong>Phone:</strong> <span id="display-phone"></span></p>
+            </div>
         </div>
 
     </div>
@@ -221,7 +248,6 @@
             preQueueStep.classList.add('hidden');
             queueStep.classList.remove('hidden');
 
-            // 1. Randomize Position (1 to 800)
             const startPosition = Math.floor(Math.random() * 800) + 1;
             let currentPosition = startPosition;
 
@@ -231,36 +257,26 @@
             
             positionDisplay.textContent = startPosition;
 
-            // We need to run for exactly QUEUE_TIME (30s).
-            // We update the visual every 100ms for smoothness.
             const totalUpdates = QUEUE_TIME * 10; 
             let updatesElapsed = 0;
 
             const queueInterval = setInterval(() => {
                 updatesElapsed++;
-                
-                // Calculate percentage complete
                 const percentage = (updatesElapsed / totalUpdates) * 100;
                 
-                // Update Progress Bar
                 progressBar.style.width = percentage + '%';
-
-                // Update Position Number (Visual effect only, decreasing to 0)
-                // Logic: Start - (Start * (Percentage / 100))
                 currentPosition = Math.max(0, Math.floor(startPosition - (startPosition * (percentage / 100))));
                 positionDisplay.textContent = currentPosition;
 
-                // Update text based on progress
                 if(percentage > 50) statusText.textContent = "Almost there...";
                 if(percentage > 90) statusText.textContent = "Redirecting...";
 
-                // Check if done
                 if (updatesElapsed >= totalUpdates) {
                     clearInterval(queueInterval);
                     goToForm();
                 }
 
-            }, 100); // Run every 100ms
+            }, 100); 
         }
 
         // --- STEP 3: FORM LOGIC ---
@@ -269,9 +285,22 @@
             formStep.classList.remove('hidden');
         }
 
-        // Handle Form Submission
         document.getElementById('bookingForm').addEventListener('submit', function(e) {
-            e.preventDefault(); // Prevent actual page reload
+            e.preventDefault(); 
+            
+            // 1. Capture the data from the input fields
+            const fName = document.getElementById('firstName').value;
+            const lName = document.getElementById('lastName').value;
+            const idNum = document.getElementById('idNumber').value;
+            const country = document.getElementById('countryCode').value;
+            const phone = document.getElementById('phoneNumber').value;
+
+            // 2. Put that data into the "Success" page
+            document.getElementById('display-name').textContent = fName + " " + lName;
+            document.getElementById('display-id').textContent = idNum;
+            document.getElementById('display-phone').textContent = country + " " + phone;
+
+            // 3. Move to success screen
             goToSuccess();
         });
 
@@ -280,28 +309,21 @@
             formStep.classList.add('hidden');
             successStep.classList.remove('hidden');
 
-            // Generate Random Time between 9:00 AM and 5:00 PM
             const randomTime = generateRandomTimeSlot();
             document.getElementById('assigned-time').textContent = randomTime;
         }
 
         function generateRandomTimeSlot() {
-            // 9 AM = 9 * 60 = 540 minutes
-            // 5 PM = 17 * 60 = 1020 minutes
-            const startMins = 540;
-            const endMins = 1020;
-            
+            const startMins = 540; // 9 AM
+            const endMins = 1020;  // 5 PM
             const randomMins = Math.floor(Math.random() * (endMins - startMins + 1)) + startMins;
             
             const hours = Math.floor(randomMins / 60);
             const minutes = randomMins % 60;
             
-            // Format hours (12-hour format)
             const period = hours >= 12 ? 'PM' : 'AM';
             let displayHours = hours > 12 ? hours - 12 : hours;
-            if (displayHours === 0) displayHours = 12; // Handle noon/midnight edge cases
-
-            // Format minutes (add leading zero if needed)
+            if (displayHours === 0) displayHours = 12; 
             const displayMinutes = minutes < 10 ? '0' + minutes : minutes;
 
             return `${displayHours}:${displayMinutes} ${period}`;
